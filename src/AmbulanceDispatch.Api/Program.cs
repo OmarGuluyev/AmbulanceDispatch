@@ -1,12 +1,9 @@
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -14,28 +11,40 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
+// Temporary ambulance data for our first prototype.
+var ambulances = new List<Ambulance>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    new(
+        1,
+        "AMB-001",
+        "Available",
+        new[] { "Basic Life Support", "Oxygen" }
+    ),
+    new(
+        2,
+        "AMB-002",
+        "Busy",
+        new[] { "Advanced Life Support", "Oxygen" }
+    ),
+    new(
+        3,
+        "AMB-003",
+        "Available",
+        new[] { "Advanced Life Support", "Oxygen", "Defibrillator" }
+    )
 };
 
-app.MapGet("/weatherforecast", () =>
+// GET /api/ambulances
+app.MapGet("/api/ambulances", () =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    return Results.Ok(ambulances);
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+record Ambulance(
+    int Id,
+    string CallSign,
+    string Status,
+    string[] Equipment
+);
