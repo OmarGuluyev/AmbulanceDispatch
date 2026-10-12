@@ -1,54 +1,44 @@
+
+using AmbulanceDispatch.Api.Data;
 using AmbulanceDispatch.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AmbulanceDispatch.Api.Services;
 
 public class AmbulanceService
 {
-    private readonly List<Ambulance> _ambulances = new()
-    {
-        new(
-            1,
-            "AMB-001",
-            AmbulanceStatus.Available,
-            new[] { "Basic Life Support", "Oxygen" }
-        ),
-        new(
-            2,
-            "AMB-002",
-            AmbulanceStatus.OnCall,
-            new[] { "Advanced Life Support", "Oxygen" }
-        ),
-        new(
-            3,
-            "AMB-003",
-            AmbulanceStatus.Available,
-            new[] { "Advanced Life Support", "Oxygen", "Defibrillator" }
-        )
-    };
+    private readonly AmbulanceDbContext _db;
 
-    public List<Ambulance> GetAll()
+    public AmbulanceService(AmbulanceDbContext db)
     {
-        return _ambulances;
+        _db = db;
     }
 
-public Ambulance? GetById(int id)
-{
-    return _ambulances.FirstOrDefault(a => a.Id == id);
-}
-
-    public bool UpdateStatus(int id, AmbulanceStatus status)
+    public async Task<List<Ambulance>> GetAllAsync()
     {
-        var index = _ambulances.FindIndex(a => a.Id == id);
+        return await _db.Ambulances.ToListAsync();
+    }
 
-        if (index == -1)
+    public async Task<Ambulance?> GetByIdAsync(int id)
+    {
+        return await _db.Ambulances.FindAsync(id);
+    }
+
+    public async Task<Ambulance?> UpdateStatusAsync(
+        int id,
+        AmbulanceStatus status)
+    {
+        var ambulance = await _db.Ambulances.FindAsync(id);
+
+        if (ambulance is null)
         {
-            return false;
+            return null;
         }
 
-        var ambulance = _ambulances[index];
+        ambulance.Status = status;
 
-        _ambulances[index] = ambulance with { Status = status };
+        await _db.SaveChangesAsync();
 
-        return true;
+        return ambulance;
     }
 }
