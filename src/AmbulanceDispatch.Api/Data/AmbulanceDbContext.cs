@@ -28,14 +28,15 @@ public class AmbulanceDbContext : DbContext
                 .HasConversion<string>()
                 .HasMaxLength(30);
 
-            entity.Property(a => a.Equipment)
-                .HasConversion(
-                    equipment => System.Text.Json.JsonSerializer.Serialize(
-                        equipment, (System.Text.Json.JsonSerializerOptions?)null),
-                    json => System.Text.Json.JsonSerializer.Deserialize<string[]>(
-                        json, (System.Text.Json.JsonSerializerOptions?)null)
-                        ?? Array.Empty<string>())
-                .HasColumnType("nvarchar(max)");
+            
+entity.Property(a => a.Equipment)
+    .HasConversion(
+        equipment => System.Text.Json.JsonSerializer.Serialize(
+            equipment, (System.Text.Json.JsonSerializerOptions?)null),
+        json => System.Text.Json.JsonSerializer.Deserialize<string[]>(
+            json, (System.Text.Json.JsonSerializerOptions?)null)
+            ?? Array.Empty<string>());
+
         });
     }
 }

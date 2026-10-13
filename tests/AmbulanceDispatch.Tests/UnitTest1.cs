@@ -8,14 +8,22 @@ namespace AmbulanceDispatch.Tests;
 
 public class AmbulanceServiceTests
 {
-    private static AmbulanceDbContext CreateDbContext()
-    {
-        var options = new DbContextOptionsBuilder<AmbulanceDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
+ 
+private static AmbulanceDbContext CreateDbContext()
+{
+    var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+    connection.Open();
 
-        return new AmbulanceDbContext(options);
-    }
+    var options = new DbContextOptionsBuilder<AmbulanceDbContext>()
+        .UseSqlite(connection)
+        .Options;
+
+    var db = new AmbulanceDbContext(options);
+    db.Database.EnsureCreated();
+
+    return db;
+}
+
 
     [Fact]
     public async Task GetAllAsync_ReturnsAllAmbulances()
@@ -113,4 +121,106 @@ public class AmbulanceServiceTests
 
         Assert.Null(result);
     }
+
+
+[Fact]
+public async Task FindSuitableAsync_RequiresAllEquipment()
+{
+    // Arrange: create three ambulances
+    await using var db = CreateDbContext();
+
+    db.Ambulances.AddRange(
+        new Ambulance
+        {
+            CallSign = "AMB-001",
+            Status = AmbulanceStatus.Available,
+            Equipment = new[] { "Oxygen" }
+        },
+        new Ambulance
+        {
+            CallSign = "AMB-002",
+            Status = AmbulanceStatus.Dispatched,
+            Equipment = new[] { "Oxygen", "Ventilator" }
+        },
+        new Ambulance
+        {
+            CallSign = "AMB-003",
+            Status = AmbulanceStatus.Available,
+            Equipment = new[] { "Oxygen", "Ventilator" }
+        });
+
+    await db.SaveChangesAsync();
+
+    var service = new AmbulanceService(db);
+
+    // Act: request an ambulance with both items
+    var result = await service.FindSuitableAsync(
+        new[] { "Oxygen", "Ventilator" });
+
+    // Assert: only AMB-003 meets both requirements
+    Assert.NotNull(result);
+    Assert.Equal("AMB-003", result.CallSign);
+}
+
+
+
+[Fact]
+public async Task DispatchAsync_WhenAmbulanceIsAvailable_DispatchesIt()
+{
+    using var db = CreateDbContext();
+
+    var ambulance = new Ambulance
+    {
+        CallSign = "AMB-001",
+        Status = AmbulanceStatus.Available,
+        Equipment = new[] { "Oxygen" }
+    };
+
+    db.Ambulances.Add(ambulance);
+    await db.SaveChangesAsync();
+
+    var service = new AmbulanceService(db);
+
+    var result = await service.DispatchAsync(ambulance.Id);
+    await db.Entry(ambulance).ReloadAsync();
+
+    Assert.NotNull(result);
+    Assert.Equal(AmbulanceStatus.Dispatched, result.Status);
+}
+
+[Fact]
+public async Task DispatchAsync_WhenAmbulanceDoesNotExist_ReturnsNull()
+{
+    using var db = CreateDbContext();
+    var service = new AmbulanceService(db);
+
+    var result = await service.DispatchAsync(999);
+
+    Assert.Null(result);
+}
+
+[Fact]
+public async Task DispatchAsync_WhenAmbulanceIsNotAvailable_ReturnsNull()
+{
+    using var db = CreateDbContext();
+
+    var ambulance = new Ambulance
+    {
+        CallSign = "AMB-002",
+        Status = AmbulanceStatus.OnCall,
+        Equipment = new[] { "Oxygen" }
+    };
+
+    db.Ambulances.Add(ambulance);
+    await db.SaveChangesAsync();
+
+    var service = new AmbulanceService(db);
+
+    var result = await service.DispatchAsync(ambulance.Id);
+
+    Assert.Null(result);
+    Assert.Equal(AmbulanceStatus.OnCall, ambulance.Status);
+}
+
+
 }

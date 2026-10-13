@@ -8,9 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AmbulanceDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("AmbulanceDatabase")));
+builder.Configuration.GetConnectionString("AmbulanceDatabase")));
 
-        builder.Services.AddScoped<AmbulanceService>();
+builder.Services.AddScoped<AmbulanceService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -68,7 +68,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 
 
 app.MapGet("/api/ambulances", async (AmbulanceService service) =>
@@ -93,6 +93,60 @@ app.MapGet("/api/ambulances/{id:int}",
 
     return Results.Ok(ambulance);
 });
+
+
+app.MapGet("/api/ambulances/suitable",
+    async (string[] equipment, AmbulanceService service) =>
+{
+    if (equipment.Length == 0 ||
+        equipment.Any(string.IsNullOrWhiteSpace))
+    {
+        return Results.BadRequest(new
+        {
+            message = "Provide at least one valid equipment item."
+        });
+    }
+
+    var ambulance = await service.FindSuitableAsync(equipment);
+
+    if (ambulance is null)
+    {
+        return Results.NotFound(new
+        {
+            message = "No available ambulance has all required equipment."
+        });
+    }
+
+    return Results.Ok(ambulance);
+});
+
+
+app.MapPost("/api/ambulances/{id:int}/dispatch",
+    async (int id, AmbulanceService service) =>
+{
+    var ambulance = await service.DispatchAsync(id);
+
+    if (ambulance is null)
+    {
+        var exists = await service.GetByIdAsync(id);
+
+        if (exists is null)
+        {
+            return Results.NotFound(new
+            {
+                message = $"Ambulance {id} was not found."
+            });
+        }
+
+        return Results.Conflict(new
+        {
+            message = $"Ambulance {id} is not available for dispatch."
+        });
+    }
+
+    return Results.Ok(ambulance);
+});
+
 
 app.MapPut("/api/ambulances/{id:int}/status",
     async (int id, string status, AmbulanceService service) =>

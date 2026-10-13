@@ -1,4 +1,5 @@
 
+using System.Linq;
 using AmbulanceDispatch.Api.Data;
 using AmbulanceDispatch.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -41,4 +42,45 @@ public class AmbulanceService
 
         return ambulance;
     }
+
+
+
+public async Task<Ambulance?> DispatchAsync(int id)
+{
+    var rowsAffected = await _db.Ambulances
+        .Where(a => a.Id == id &&
+                    a.Status == AmbulanceStatus.Available)
+        .ExecuteUpdateAsync(setters => setters
+            .SetProperty(
+                a => a.Status,
+                AmbulanceStatus.Dispatched));
+
+    if (rowsAffected == 0)
+    {
+        return null;
+    }
+
+    return await _db.Ambulances.FindAsync(id);
+}
+
+
+
+    
+
+public async Task<Ambulance?> FindSuitableAsync(
+    string[] requiredEquipment)
+{
+    var availableAmbulances = await _db.Ambulances
+        .Where(a => a.Status == AmbulanceStatus.Available)
+        .OrderBy(a => a.Id)
+        .ToListAsync();
+
+    return availableAmbulances.FirstOrDefault(ambulance =>
+        requiredEquipment.All(required =>
+            ambulance.Equipment.Contains(
+                required,
+                StringComparer.OrdinalIgnoreCase)));
+}
+
+
 }
